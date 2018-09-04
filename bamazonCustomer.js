@@ -13,16 +13,28 @@ var connection = mysql.createConnection({
   password: "password"
 });
 
-function placeOrder(item, quantity) {
+//update item quantity in the database
+function placeOrder(item, userQuantity, stockQuantity) {
+  var newQuantity = stockQuantity - userQuantity;
   var query = "UPDATE products SET ? WHERE ?";
-  connection.query(query, {stock_quantity: stock_quantity - quantity, item_id: item}, function(err, res){
+  connection.query(query, [{stock_quantity: newQuantity}, {item_id: item}], function(err, res){
     if (err) throw err;
-    console.log("Worked?");
+
+    console.log("\n--------------------------------\n");
+    console.log("Thank you for your order!");
+    console.log("\n--------------------------------\n");
+
+    displayAllProducts(userSelectProduct);
   });
 }
 
-function confirmOrder(item, quantity, price) {
-  console.log("Your total is: $" + quantity * price);
+//show user the total and ask them to confirm the order
+function confirmOrder(item, userQuantity, stockQuantity, price) {
+
+  console.log("\n--------------------------------\n");
+  console.log("Your total is: $" + userQuantity * price);
+  console.log("\n--------------------------------\n");
+
   inq.prompt([
     {
       type: "confirm",
@@ -32,23 +44,30 @@ function confirmOrder(item, quantity, price) {
     }
   ]).then(function(res){
     if (res.confirm) {
-      placeOrder(item, quantity);
+      placeOrder(item, userQuantity, stockQuantity);
     }
     else {
+      console.log("\n--------------------------------\n");
       console.log("Your order has been canceled.");
+      console.log("\n--------------------------------\n");
+
       userSelectProduct();
     }
   });
 }
 
-function checkStock(item, quantity) {
+//check the database to make sure there is enough quantity for the customers order
+function checkStock(item, userQuantity) {
   var query = "SELECT stock_quantity, price FROM products WHERE ?";
   connection.query(query, {item_id: item}, function(err, res){
-    if (res[0].stock_quantity >= quantity) {
-      confirmOrder(item, quantity, res[0].price);
+    if (res[0].stock_quantity >= userQuantity) {
+      confirmOrder(item, userQuantity, res[0].stock_quantity, res[0].price);
     }
     else {
+      console.log("\n--------------------------------\n");
       console.log("Sorry we only have " + res[0].stock_quantity + " of that item.");
+      console.log("\n--------------------------------\n");
+
       userSelectProduct();
     }
   });
@@ -74,6 +93,9 @@ function userSelectProduct() {
 
 //select everything from product table and display using "table"
 function displayAllProducts(cb) {
+  //empty displayData array
+  displayData = [];
+
   var query = "SELECT * FROM products";
   connection.query(query, function(err, res){
     if (err) throw err;
@@ -89,6 +111,8 @@ function displayAllProducts(cb) {
     }
     var output = table(displayData);
     console.log(output);
+
+    //run option callback, primarily to display next user prompt
     if (cb) {
       cb();
     }
@@ -96,7 +120,6 @@ function displayAllProducts(cb) {
 }
 
 function initialize() {
-  displayData = [];
   displayAllProducts(userSelectProduct);
 }
 
